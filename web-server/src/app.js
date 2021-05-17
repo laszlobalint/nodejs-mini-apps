@@ -6,6 +6,7 @@ const geocode = require("./utils/geocode");
 const weather = require("./utils/weather");
 
 process.env["NO_PROXY"] = "*";
+const port = process.env.PORT || 3000;
 const app = express();
 
 app.set("view engine", "hbs");
@@ -23,17 +24,28 @@ app.get("/weather", (req, res) => {
     if (error) {
       return res.send({ error });
     } else {
-      weather(coordinates, (error, weather) => (error ? res.send({ error }) : res.send({ weather })));
+      weather(coordinates, (error, weather) =>
+        error ? res.send({ error }) : res.send({ weather })
+      );
     }
   });
 });
 
-app.get("/about", (req, res) => res.render("about", { title: "About", author: "László Bálint" }));
+app.get("/about", (req, res) =>
+  res.render("about", { title: "About", author: "László Bálint" })
+);
 
 app.get("/help", (req, res) => res.render("help", { title: "Help" }));
 
-app.get("/help/*", (req, res) => res.render("error", { title: "Help", error: "Help article not found." }));
+app.get("/help/*", (req, res) =>
+  res.render("error", { title: "Help", error: "Help article not found." })
+);
 
-app.get("*", (req, res) => res.render("error", { title: "Not found - 404", error: "Resource not available or found." }));
+app.get("*", (req, res) =>
+  res.render("error", {
+    title: "Not found - 404",
+    error: "Resource not available or found.",
+  })
+);
 
-app.listen(3000, () => console.log(`Web Server has started on port 3000!`));
+app.listen(port, () => console.log(`Web Server has started on port ${port}!`));
