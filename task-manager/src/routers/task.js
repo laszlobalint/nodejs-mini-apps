@@ -37,11 +37,16 @@ router.patch("/tasks/:id", async (req, res) => {
   if (!updates.every((update) => allowed.includes(update))) return res.send(400).send({ error: "Invalid updates!" });
 
   try {
-    await Task.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true }).then((task) => {
-      if (!task) return res.status(404).send();
+    await Task.findById(req.params.id)
+      .then((task) => {
+        updates.forEach((update) => (task[update] = req.body[update]));
+        return task.save();
+      })
+      .then((savedTask) => {
+        if (!savedTask) return res.status(404).send();
 
-      res.status(200).send(task);
-    });
+        res.status(200).send(savedTask);
+      });
   } catch (error) {
     res.status(400).send(error);
   }
