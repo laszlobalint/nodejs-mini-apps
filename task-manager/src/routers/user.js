@@ -1,18 +1,24 @@
 const express = require("express");
 const router = new express.Router();
+const authentication = require("../middlewares/authentication");
 const User = require("../models/user");
 
 router.post("/users/login", async (req, res) => {
   try {
-    await User.findByCredentials(req.body.email, req.body.password).then((user) => res.status(200).send(user));
+    const user = await User.findByCredentials(
+      req.body.email,
+      req.body.password
+    );
+    const token = await user.generateAuthToken();
+    res.status(200).send({ user, token });
   } catch (error) {
     res.status(400).send(error);
   }
 });
 
-router.get("/users", async (req, res) => {
+router.get("/user", authentication, async (req, res) => {
   try {
-    res.status(200).send(await User.find({}));
+    res.status(200).send(req.user);
   } catch (error) {
     res.status(500).send(error);
   }
@@ -31,8 +37,12 @@ router.get("/users/:id", async (req, res) => {
 });
 
 router.post("/users", async (req, res) => {
+  const user = new User(req.body);
+
   try {
-    res.status(201).send(await new User(req.body).save());
+    await user.save();
+    const token = await user.generateAuthToken();
+    res.status(201).send({ user, token });
   } catch (error) {
     res.status(400).send(error);
   }
@@ -42,7 +52,8 @@ router.patch("/users/:id", async (req, res) => {
   const updates = Object.keys(req.body);
   const allowed = ["name", "password", "email", "age"];
 
-  if (!updates.every((update) => allowed.includes(update))) return res.send(400).send({ error: "Invalid updates!" });
+  if (!updates.every((update) => allowed.includes(update)))
+    return res.send(400).send({ error: "Invalid updates!" });
 
   try {
     await User.findById(req.params.id)

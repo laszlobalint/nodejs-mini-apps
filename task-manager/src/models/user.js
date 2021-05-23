@@ -1,4 +1,5 @@
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const validator = require("validator");
 
@@ -14,7 +15,8 @@ const userSchema = new mongoose.Schema({
     trim: true,
     minlength: 7,
     validate(value) {
-      if (value.toLowerCase().includes("password")) throw new Error("Password should not contain the word 'password'!");
+      if (value.toLowerCase().includes("password"))
+        throw new Error("Password should not contain the word 'password'!");
     },
   },
   email: {
@@ -24,17 +26,36 @@ const userSchema = new mongoose.Schema({
     trim: true,
     lowercase: true,
     validate(value) {
-      if (!validator.isEmail(value)) throw new Error("Email has to be a valid address!");
+      if (!validator.isEmail(value))
+        throw new Error("Email has to be a valid address!");
     },
   },
   age: {
     type: Number,
     default: 0,
     validate(value) {
-      if (value < 0 || value > 120) throw new Error("Age must be a positive number!");
+      if (value < 0 || value > 120)
+        throw new Error("Age must be a positive number!");
     },
   },
+  tokens: [
+    {
+      token: {
+        type: String,
+        required: true,
+      },
+    },
+  ],
 });
+
+userSchema.methods.generateAuthToken = async function () {
+  const user = this;
+  const token = jwt.sign({ _id: user._id.toString() }, "task-secret-key");
+  user.tokens = user.tokens.concat({ token });
+  await user.save();
+
+  return token;
+};
 
 userSchema.statics.findByCredentials = async (email, password) => {
   const user = await User.findOne({ email });
@@ -51,7 +72,8 @@ userSchema.statics.findByCredentials = async (email, password) => {
 userSchema.pre("save", async function (next) {
   const user = this;
 
-  if (user.isModified("password")) user.password = await bcrypt.hash(user.password, 8);
+  if (user.isModified("password"))
+    user.password = await bcrypt.hash(user.password, 8);
 
   next();
 });
