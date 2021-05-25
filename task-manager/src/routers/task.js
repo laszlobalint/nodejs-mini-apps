@@ -1,18 +1,21 @@
 const express = require("express");
 const router = new express.Router();
+const authentication = require("../middlewares/authentication");
 const Task = require("../models/task");
 
-router.get("/tasks", async (req, res) => {
+router.get("/tasks", authentication, async (req, res) => {
   try {
-    res.status(200).send(await Task.find({}));
+    await req.user.populate("tasks").execPopulate();
+
+    res.status(200).send(req.user.tasks);
   } catch (error) {
     res.status(500).send(error);
   }
 });
 
-router.get("/tasks/:id", async (req, res) => {
+router.get("/tasks/:id", authentication, async (req, res) => {
   try {
-    await Task.findById(req.params.id).then((task) => {
+    await Task.findOne({ _id: req.params.id, owner: req.user._id }).then((task) => {
       if (!task) return res.status(404).send();
 
       res.status(200).send(task);
@@ -22,42 +25,41 @@ router.get("/tasks/:id", async (req, res) => {
   }
 });
 
-router.post("/tasks", async (req, res) => {
+router.post("/tasks", authentication, async (req, res) => {
+  const task = new Task({ ...req.body, owner: req.user._id });
+
   try {
-    res.status(201).send(await new Task(req.body).save());
+    res.status(201).send(await task.save());
   } catch (error) {
     res.status(400).send(error);
   }
 });
 
-router.patch("/tasks/:id", async (req, res) => {
+router.patch("/tasks/:id", authentication, async (req, res) => {
   const updates = Object.keys(req.body);
   const allowed = ["description", "completed"];
 
   if (!updates.every((update) => allowed.includes(update))) return res.send(400).send({ error: "Invalid updates!" });
 
   try {
-    await Task.findById(req.params.id)
-      .then((task) => {
-        updates.forEach((update) => (task[update] = req.body[update]));
-        return task.save();
-      })
-      .then((savedTask) => {
-        if (!savedTask) return res.status(404).send();
+    const task = await Task.findOne({ _id: req.params.id, owner: req.user._id });
 
-        res.status(200).send(savedTask);
-      });
+    if (!task) return res.status(404).send();
+
+    updates.forEach((update) => (task[update] = req.body[update]));
+
+    res.status(200).send(await task.save());
   } catch (error) {
     res.status(400).send(error);
   }
 });
 
-router.delete("/tasks/:id", async (req, res) => {
+router.delete("/tasks/:id", authentication, async (req, res) => {
   try {
-    await Task.findByIdAndDelete(req.params.id).then((task) => {
+    await Task.findOneAndDelete({ _id: req.params.id, owner: req.user._id }).then((task) => {
       if (!task) return res.status(404).send();
 
-      res.status(204).send(task);
+      res.status(200).send(task);
     });
   } catch (error) {
     res.status(500).send(error);
